@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quantum Apex Assistant — Gemini &amp; Supabase Integrated</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+    :root{
+      --card-radius: 1rem;
+      --shadow: 0 10px 30px rgba(2,6,23,0.6);
+      --max-width: 1200px;
+    }
+    .typing-dot { display:inline-block; width:6px; height:6px; margin:0 2px; border-radius:50%;
+      background: #cbd5e1; animation: typing 1s infinite; }
+    .typing-dot:nth-child(2){ animation-delay: .2s }
+    .typing-dot:nth-child(3){ animation-delay: .4s }
+    @keyframes typing { 0%{opacity:0.2; transform: translateY(0)} 50%{opacity:1; transform: translateY(-3px)} 100%{opacity:0.2; transform: translateY(0)} }
+    
+    /* Global Transitions and Theme Variables */
+    body { transition: background-color .25s ease, color .25s ease; }
+    body.theme-spring { --bg: #f6fbf7; --panel: #ffffff; --muted: #6b7280; --accent: #0f766e; color: #064e3b; background: var(--bg); --border-color: rgba(0,0,0,0.08); --accent-rgb: 15, 118, 110; }
+    body.theme-midnight { --bg: #0b1220; --panel: #0f1724; --muted: #94a3b8; --accent: #60a5fa; color: #e6eef8; background: var(--bg); --border-color: rgba(255,255,255,0.1); --accent-rgb: 96, 165, 250; }
+    body.theme-ink { --bg: #0f172a; --panel: #0b1220; --muted: #9aa4b2; --accent: #7c3aed; color: #f3e8ff; background: var(--bg); --border-color: rgba(255,255,255,0.1); --accent-rgb: 124, 58, 237; }
+    body.theme-warm { --bg: #fff7ed; --panel: #fffaf0; --muted: #92400e; --accent: #ea580c; color: #7c2d12; background: var(--bg); --border-color: rgba(0,0,0,0.08); --accent-rgb: 234, 88, 12; }
+    body.theme-forest { --bg: #f1faf6; --panel: #ffffff; --muted: #2d6a4f; --accent: #2f855a; color: #064e3b; background: var(--bg); --border-color: rgba(0,0,0,0.08); --accent-rgb: 47, 133, 90; }
+    body.theme-rose { --bg: #fff1f2; --panel: #fff6f7; --muted: #7f1d1d; --accent: #be185d; color: #4c0519; background: var(--bg); --border-color: rgba(0,0,0,0.08); --accent-rgb: 190, 24, 93; }
+
+    /* Component Styles */
+    .panel { background: var(--panel); border-radius: var(--card-radius); box-shadow: var(--shadow); border: 1px solid var(--border-color); }
+    .muted { color: var(--muted); }
+    .accent { color: var(--accent); }
+    .btn-accent { background: var(--accent); color: white; transition: filter 0.2s; }
+    .btn-accent:hover { filter: brightness(.95); }
+    .btn-secondary { background: transparent; border: 1px solid var(--border-color); transition: background-color 0.2s; }
+    .btn-secondary:hover { background-color: rgba(127,127,127,0.1); }
+    
+    .bubble-user { background: linear-gradient(135deg, rgba(59,130,246,.95), rgba(37,99,235,.95)); color:white; }
+    .bubble-bot  { background: rgba(100,116,139,0.06); color: inherit; border:1px solid var(--border-color); }
+    
+    /* Modal Styles */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(2,6,23,0.8); display:flex; align-items:center; justify-content:center; z-index:60; opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
+    .modal-backdrop.show { opacity: 1; pointer-events: auto; }
+    .modal { width: min(900px, 95%); max-height: 85vh; overflow:auto; padding:1.5rem; opacity: 0; transform: translateY(-30px) scale(0.95); transition: all 0.35s ease; }
+    .modal.show { opacity: 1; transform: translateY(0) scale(1); }
+
+    /* Global Footer for themes/credits */
+    .global-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 0.75rem 1.5rem; display:flex; justify-content:space-between; align-items:center; z-index: 50; pointer-events: none; }
+    .global-footer > * { pointer-events: auto; }
+    
+    .page-container { padding-bottom: 4rem; /* Space for footer */ }
+
+    .hidden-button { font-size: 0.75rem; color: var(--muted); background: transparent; border: none; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; }
+    .hidden-button:hover { opacity: 1; text-decoration: underline; }
+    
+    /* Toggle Switch Style */
+    .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(26px); }
+    .slider.round { border-radius: 34px; }
+    .slider.round:before { border-radius: 50%; }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(127,127,127,0.3); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(127,127,127,0.5); }
+
+    /* Toast Notification */
+    #toast { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background-color: var(--accent); color: white; padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: var(--shadow); transition: bottom 0.5s ease-in-out; z-index: 1000; }
+    #toast.show { bottom: 20px; }
+    
+    /* 🌟 --- UI ENHANCEMENT STYLES --- 🌟 */
+    
+    #bg3d {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -2; display: block;
+    }
+    body::before {
+        content: ''; position: fixed; inset: 0;
+        background: radial-gradient(circle at 10% 10%, rgba(var(--accent-rgb), 0.15), transparent 40%),
+                    radial-gradient(circle at 90% 85%, rgba(var(--accent-rgb), 0.15), transparent 50%);
+        z-index: -1; transition: opacity 0.5s ease;
+    }
+    .panel {
+        background: rgba(15, 23, 36, 0.5); -webkit-backdrop-filter: blur(16px) saturate(180%);
+        backdrop-filter: blur(16px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px 0 rgba(2, 6, 23, 0.37); transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative; overflow: hidden;
+    }
+    body.theme-spring .panel, body.theme-warm .panel, body.theme-forest .panel, body.theme-rose .panel {
+        background: rgba(255, 255, 255, 0.5); border-color: rgba(0,0,0,0.1);
+    }
+    .panel::after {
+        content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1;
+        pointer-events: none; border-radius: inherit;
+        background: radial-gradient(400px circle at var(--mouse-x) var(--mouse-y), rgba(var(--accent-rgb), 0.25), transparent 60%);
+        opacity: 0; transition: opacity 0.4s ease-out;
+    }
+    .panel:hover::after { opacity: 1; }
+    .btn-accent, .btn-secondary {
+        position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent;
+        transition: box-shadow 0.3s ease, transform 0.2s ease;
+    }
+    .btn-accent:hover {
+        transform: translateY(-2px); filter: brightness(1.1);
+        box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.5), 0 0 30px rgba(var(--accent-rgb), 0.25);
+    }
+    .btn-secondary:hover { transform: translateY(-2px); border-color: rgba(var(--accent-rgb), 0.7); color: var(--accent); }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea {
+        transition: border-color 0.3s ease, box-shadow 0.3s ease; border-color: var(--border-color);
+    }
+    input:focus, textarea:focus, .focus-within\\:border-\\[var\\(--accent\\)\\]:focus-within {
+        outline: none; border-color: rgba(var(--accent-rgb), 0.8) !important;
+        box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4);
+    }
+    .ripple {
+        position: absolute; border-radius: 50%; transform: scale(0);
+        animation: ripple-effect 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        background-color: rgba(255, 255, 255, 0.6); pointer-events: none;
+    }
+    @keyframes ripple-effect { to { transform: scale(4); opacity: 0; } }
+    .bubble-bot { backdrop-filter: blur(5px); }
+    .page { will-change: transform, opacity; }
+
+    /* Styles for new features */
+    .quiz-option {
+        display: block; padding: 0.75rem 1rem; border: 1px solid var(--border-color);
+        border-radius: 0.5rem; margin-bottom: 0.5rem; cursor: pointer;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+    .quiz-option:hover { background-color: rgba(var(--accent-rgb), 0.1); }
+    .quiz-option.selected { background-color: rgba(var(--accent-rgb), 0.2); border-color: rgba(var(--accent-rgb), 0.5); }
+    .web-results-bubble { list-style: none; padding: 0; margin: 0; }
+    .web-results-bubble li { margin-bottom: 0.75rem; border-left: 3px solid var(--accent); padding-left: 0.75rem;}
+    .web-results-bubble a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .web-results-bubble p { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+
+  </style>
+</head>
+<body class="h-full theme-midnight text-gray-100 antialiased">
+<canvas id="bg3d"></canvas>
+
+<div class="fixed inset-0 bg-gray-900/80 flex items-center justify-center z-[999]" id="loader">
+<div class="text-center">
+<i class="fas fa-brain fa-spin text-4xl accent mb-4"></i>
+<p class="text-lg">Initializing Quantum Apex...</p>
+</div>
+</div>
+<div class="page h-full w-full flex items-center justify-center p-6" id="login-page">
+<div class="panel p-8 rounded-2xl w-full max-w-sm text-center">
+<i class="fas fa-brain text-4xl accent mb-4"></i>
+<h2 class="text-3xl font-bold mb-2">Quantum Apex</h2>
+<p class="muted mb-6">Your MIT Wellness Companion</p>
+<div class="space-y-4">
+<input class="w-full px-4 py-3 rounded-lg border-2 bg-transparent focus:border-[var(--accent)] outline-none transition" id="login-email" placeholder="Email" type="email"/>
+<input class="w-full px-4 py-3 rounded-lg border-2 bg-transparent focus:border-[var(--accent)] outline-none transition" id="login-password" placeholder="Password" type="password"/>
+<button class="w-full py-3 rounded-lg btn-accent font-semibold text-lg" id="login-btn">Login</button>
+<p class="text-red-400 text-sm h-4" id="login-error"></p>
+<p class="muted text-sm pt-2">Don't have an account? It will be created on login.</p>
+</div>
+</div>
+</div>
+<div class="page hidden h-full w-full flex items-center justify-center p-6" id="role-selection-page">
+<div class="panel p-8 rounded-2xl w-full max-w-md text-center">
+<h2 class="text-2xl font-semibold mb-2">Welcome!</h2>
+<p class="muted mb-6">Please identify your role at MIT to continue.</p>
+<div class="space-y-4">
+<button class="role-btn w-full py-3 rounded-lg btn-accent font-semibold text-lg" data-role="student">I am an MIT Student</button>
+<button class="role-btn w-full py-3 rounded-lg btn-accent font-semibold text-lg" data-role="mentor">I am an MIT Mentor</button>
+<button class="role-btn w-full py-3 rounded-lg btn-secondary font-semibold text-lg" data-role="outsider">I am an Outside Member</button>
+</div>
+</div>
+</div>
+<div class="page hidden h-full w-full flex items-center justify-center p-6 page-container" id="student-dashboard-page">
+<div class="panel p-8 rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h2 class="text-3xl font-bold">Student Dashboard</h2>
+<p class="muted">Your personal wellness and productivity hub.</p>
+</div>
+<div class="relative flex items-center gap-2">
+<button class="py-2 px-4 rounded-lg btn-secondary relative" id="notifications-btn"><i class="fas fa-bell"></i><span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden" id="notif-count">0</span></button>
+<button class="py-2 px-4 rounded-lg btn-secondary" id="logout-btn-student" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+<div class="hidden absolute right-0 mt-12 w-80 panel p-4 space-y-3 z-50" id="notifications-panel">
+<div class="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
+<h4 class="font-semibold">Notifications</h4>
+<button class="text-sm muted hover:text-red-500" id="close-notifications-btn"><i class="fas fa-times"></i></button>
+</div>
+<div class="max-h-60 overflow-y-auto space-y-2" id="notifications-list">
+</div>
+</div>
+</div>
+</div>
+<div class="flex-grow grid grid-cols-1 lg:grid-cols-5 gap-8 overflow-y-auto pb-4">
+<div class="lg:col-span-3">
+<div class="panel p-8">
+<h3 class="font-semibold text-xl mb-6">Your Information</h3>
+<div class="space-y-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div>
+<label class="block text-sm font-medium muted mb-2">Full Name</label>
+<input class="w-full px-4 py-3 rounded-lg border bg-transparent" id="student-name" placeholder="Your Full Name" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium muted mb-2">Enrollment Number</label>
+<input class="w-full px-4 py-3 rounded-lg border bg-transparent" id="student-enrollment" placeholder="Enrollment Number" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium muted mb-2">CGPA</label>
+<input class="w-full px-4 py-3 rounded-lg border bg-transparent" id="student-cgpa" max="10" min="0" placeholder="e.g., 8.5" step="0.01" type="number"/>
+</div>
+<div>
+<label class="block text-sm font-medium muted mb-2">College Year</label>
+<input class="w-full px-4 py-3 rounded-lg border bg-transparent" id="student-year" max="5" min="1" placeholder="e.g., 2" type="number"/>
+</div>
+<div class="sm:col-span-2">
+<label class="block text-sm font-medium muted mb-2">Preferred Study Hours / Day</label>
+<input class="w-full px-4 py-3 rounded-lg border bg-transparent" id="student-preferred-hours" min="0" placeholder="e.g., 4" type="number"/>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4">
+<label class="block text-sm font-medium muted">Share Name with Mentors</label>
+<label class="switch">
+<input id="student-share-name" type="checkbox"/>
+<span class="slider round"></span>
+</label>
+</div>
+<div class="pt-6 mt-6 border-t border-[var(--border-color)]/50 space-y-3">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<button class="w-full px-6 py-3 rounded-lg btn-accent font-semibold" id="save-student-info">Save Profile Info</button>
+<button class="w-full px-6 py-3 rounded-lg btn-accent font-semibold" id="save-student-extra">Save Academic Info</button>
+</div>
+<button class="w-full px-6 py-3 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/40 font-semibold mt-4" id="delete-account-btn">Delete Account</button>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-2 space-y-8">
+<div class="panel p-6 text-center">
+<i class="fas fa-robot text-4xl accent mb-3"></i>
+<h3 class="font-semibold text-xl mb-2">AI Assistant</h3>
+<p class="muted mb-4">Chat with your personal AI wellness companion.</p>
+<button class="w-full px-6 py-4 rounded-lg btn-accent font-semibold" id="open-chat-student">Open Quantum Apex Assistant</button>
+</div>
+<div class="panel p-6 text-center">
+<i class="fas fa-calendar-alt text-4xl accent mb-3"></i>
+<h3 class="font-semibold text-xl mb-2">AI Study Planner</h3>
+<p class="muted mb-4">Generate a personalized study calendar based on your needs.</p>
+<button class="w-full px-6 py-4 rounded-lg btn-accent font-semibold" id="open-calendar-modal">Create AI Calendar</button>
+</div>
+<div class="panel p-6 text-center">
+<i class="fas fa-chart-pie text-4xl accent mb-3"></i>
+<h3 class="font-semibold text-xl mb-2">Mental Health Graph</h3>
+<p class="muted mb-4">View an AI-generated analysis of your emotional state.</p>
+<button class="w-full px-6 py-4 rounded-lg btn-accent font-semibold" id="open-graph-student">View My Graph</button>
+</div>
+<div class="panel p-6" id="stress-calculator-panel">
+<h3 class="font-semibold text-xl mb-2">Stress Assessment</h3>
+<p class="muted text-sm mb-4">Answer 10 quick questions to gauge your current stress level.</p>
+<div id="stress-quiz-container">
+<button id="start-quiz-btn" class="w-full px-6 py-3 btn-accent rounded-lg">Start Assessment</button>
+</div>
+<div id="stress-result-container" class="hidden text-center">
+<h4 class="font-semibold text-lg" id="stress-level-text"></h4>
+<p class="muted text-sm" id="stress-advice-text"></p>
+<div class="relative h-48 w-full mt-4"><canvas id="stress-chart"></canvas></div>
+<button id="retake-quiz-btn" class="w-full mt-4 px-6 py-3 btn-secondary rounded-lg">Retake Assessment</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="page hidden h-full w-full flex items-center justify-center p-6 page-container" id="mentor-dashboard-page">
+<div class="panel p-8 rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h2 class="text-3xl font-bold">Mentor Dashboard</h2>
+<p class="muted">View student wellness graphs and offer support.</p>
+</div>
+<button class="py-2 px-4 rounded-lg btn-secondary flex items-center gap-2" id="logout-btn-mentor"><i class="fas fa-sign-out-alt"></i>Logout</button>
+</div>
+<div class="flex-grow bg-black/10 rounded-lg p-4 overflow-y-auto">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-semibold">Student List</h3>
+<div class="flex items-center gap-4">
+<div class="text-sm muted">Total Students: <span id="mentor-total-count">0</span></div>
+<div class="text-sm muted">High Risk: <span id="mentor-highrisk-count">0</span></div>
+<button id="mentor-refresh-btn" class="py-1 px-3 rounded-lg btn-secondary text-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+</div>
+</div>
+<div class="mb-3">
+<input id="mentor-search" class="w-full p-2 rounded bg-transparent border" type="text" placeholder="Search students' chats..." />
+<div id="mentor-search-results" class="mt-2 text-sm muted space-y-2 max-h-40 overflow-y-auto"></div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-sm text-left table-auto">
+<thead class="border-b-2 border-[var(--border-color)]">
+<tr>
+<th scope="col" class="px-4 py-3 font-semibold">Student</th>
+<th scope="col" class="px-4 py-3 font-semibold">Status</th>
+<th scope="col" class="px-4 py-3 font-semibold text-right">Actions</th>
+</tr>
+</thead>
+<tbody id="student-list" class="divide-y divide-[var(--border-color)]/50">
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="page hidden w-full max-w-[var(--max-width)] mx-auto h-full max-h-screen flex gap-6 p-4 page-container" id="chat-app">
+<aside class="panel flex-col p-0 overflow-hidden w-full max-w-xs hidden md:flex">
+<div class="p-4">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-emerald-500 rounded-full flex items-center justify-center text-white text-xl"><i class="fas fa-brain"></i></div>
+<div><h1 class="text-lg font-bold">Quantum Apex</h1><p class="text-sm muted">AI Assistant</p></div>
+</div>
+<button class="w-full py-2 rounded-lg btn-secondary mb-4" id="back-to-dashboard-btn"><i class="fas fa-arrow-left mr-2"></i>Back to Dashboard</button>
+<button class="w-full py-2 rounded-lg btn-secondary" id="open-graph-chat"><i class="fas fa-chart-pie mr-2"></i>View My Graph</button>
+</div>
+<div class="flex-grow p-4 border-t border-[var(--border-color)]">
+<div class="mb-4">
+<label class="block text-sm font-medium mb-2" for="guidance-spectrum">Guidance Spectrum</label>
+<input class="w-full h-2 rounded-lg" id="guidance-spectrum" max="2" min="0" step="0.1" type="range" value="1"/>
+<div class="flex justify-between text-xs muted mt-2">
+<span id="label-empathetic">Empathetic</span><span class="font-semibold" id="label-balanced">Balanced</span><span id="label-pragmatic">Pragmatic</span>
+</div>
+</div>
+
+      <div class="mb-4">
+        <input id="chat-search" class="w-full p-2 rounded bg-transparent border" type="text" placeholder="Search your chats..." />
+        <ul id="search-results" class="mt-2 text-sm muted space-y-2 max-h-40 overflow-y-auto"></ul>
+      </div>
+<div class="mb-4"><label class="block text-sm font-medium mb-1">Save History</label><p class="text-xs muted">Chats are saved to your account. Use Clear History to remove them.</p></div>
+</div>
+<div class="p-4 border-t border-[var(--border-color)]">
+<button class="w-full py-2 rounded-lg bg-red-600/80 hover:bg-red-600 text-white text-sm flex items-center justify-center gap-2 mb-4" id="clear-history-btn">
+<i class="fas fa-trash-alt"></i> Clear History
+          </button>
+<button class="w-full py-2 rounded-lg btn-secondary text-sm flex items-center justify-center gap-2" id="logout-btn-chat">
+<i class="fas fa-sign-out-alt"></i> Logout
+          </button>
+</div>
+</aside>
+<main class="flex-1 flex flex-col panel">
+<div class="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
+<div class="flex items-center gap-3"><h2 class="text-lg font-semibold">Chat</h2><span class="text-sm muted hidden md:block">— Ask about studying, stress, or coping strategies</span></div>
+<button class="md:hidden py-2 px-3 rounded-lg btn-secondary" id="mobile-back-btn"><i class="fas fa-arrow-left"></i></button>
+</div>
+<div class="flex-1 p-4 overflow-y-auto" id="chat-window"><div class="space-y-4" id="messages"></div></div>
+<div class="p-4 border-t border-[var(--border-color)]">
+<div class="flex items-center gap-3 bg-transparent rounded-xl p-2 border border-[var(--border-color)] focus-within:border-[var(--accent)]">
+<textarea class="flex-grow resize-none bg-transparent text-current placeholder:muted focus:outline-none px-2 py-2" id="chat-input" placeholder="Type your message here..." rows="1"></textarea>
+<button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg w-10 h-10 flex items-center justify-center flex-shrink-0" id="send-btn"><i class="fas fa-paper-plane"></i></button>
+</div>
+</div>
+</main>
+</div>
+<div class="modal-backdrop" id="credits-modal"><div class="modal panel"><div class="flex items-start justify-between mb-4"><h3 class="text-xl font-semibold">Project Credits</h3><button class="modal-close-btn text-sm muted px-3 py-1 rounded hover:bg-gray-100/5">Close</button></div><ul class="list-disc list-inside text-sm muted"><li>Abir</li><li>Sarthak</li><li>Vrinda</li><li>Aditya</li><li>Harshit</li><li>Divyesh</li></ul></div></div>
+
+<div class="modal-backdrop" id="history-modal">
+  <div class="modal panel">
+    <div class="flex items-start justify-between mb-4">
+      <h3 class="text-xl font-semibold">Navigation History</h3>
+      <button class="modal-close-btn text-sm muted px-3 py-1 rounded hover:bg-gray-100/5">Close</button>
+    </div>
+    <ul id="history-list" class="list-disc list-inside text-sm muted space-y-2 max-h-72 overflow-y-auto"></ul>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mentor-search-result-modal">
+  <div class="modal panel">
+    <div class="flex items-start justify-between mb-4">
+      <h3 class="text-xl font-semibold" id="msr-title">Search Result</h3>
+      <button class="modal-close-btn text-sm muted px-3 py-1 rounded hover:bg-gray-100/5">Close</button>
+    </div>
+    <div id="msr-body" class="text-sm muted"></div>
+    <div class="mt-4 flex gap-2">
+      <button id="msr-open-student" class="w-full py-2 btn-accent rounded-lg">Open Student</button>
+      <button id="msr-send-notif" class="w-full py-2 btn-secondary rounded-lg">Send Notification</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="calendar-modal"><div class="modal panel"><div class="flex items-start justify-between mb-4"><h3 class="text-xl font-semibold">AI Study Planner</h3><button class="modal-close-btn text-sm muted px-3 py-1 rounded hover:bg-gray-100/5">Close</button></div><div class="space-y-4" id="calendar-form"><div><label class="block mb-1">How many hours can you study per day?</label><input class="w-full p-2 rounded bg-transparent border" id="study-hours" placeholder="e.g., 4" type="number"/></div><div><label class="block mb-1">How long can you focus in one session (minutes)?</label><input class="w-full p-2 rounded bg-transparent border" id="focus-time" placeholder="e.g., 50" type="number"/></div><div><label class="block mb-1">What subjects do you need to study?</label><input class="w-full p-2 rounded bg-transparent border" id="subjects" placeholder="e.g., Physics, Calculus, AI Ethics" type="text"/></div><div><label class="block mb-1">Any upcoming deadlines?</label><textarea class="w-full p-2 rounded bg-transparent border" id="deadlines" placeholder="e.g., Physics project due Friday, Calculus exam next Monday" rows="3"></textarea></div><button class="w-full py-2 btn-accent rounded-lg font-semibold" id="generate-calendar-btn">Generate Schedule</button></div><div class="hidden mt-4 max-h-96 overflow-y-auto" id="calendar-result"></div></div></div>
+<div class="modal-backdrop" id="graph-modal"><div class="modal panel"><div class="flex items-start justify-between mb-4"><h3 class="text-xl font-semibold" id="graph-title">Your Mental Wellness Graph</h3><button class="modal-close-btn text-sm muted px-3 py-1 rounded hover:bg-gray-100/5">Close</button></div><div class="relative h-96 w-full" id="graph-container"><canvas id="mental-health-chart"></canvas></div><p class="muted text-sm mt-4 text-center">This graph is an AI-generated estimation based on your conversation and is not a clinical diagnosis.</p></div></div>
+<div class="modal-backdrop" id="mentor-student-modal"><div class="modal panel"><div class="flex items-start justify-between mb-4"><h3 class="text-xl font-semibold" id="mentor-student-name">Student's Graph</h3><button class="modal-close-btn text-sm muted px-3 py-1 rounded hover:bg-gray-100/5">Close</button></div><div class="relative h-96 w-full mb-4" id="mentor-graph-container"><canvas id="mentor-student-chart"></canvas></div><h4 class="font-semibold text-lg mb-2">Send a Message</h4><div class="space-y-3"><textarea class="w-full p-2 rounded bg-transparent border" id="mentor-message-input" placeholder="Type a supportive message..." rows="3"></textarea><button class="w-full py-2 btn-accent rounded-lg font-semibold" id="send-mentor-message-btn">Send Message</button></div></div></div>
+<div class="modal-backdrop" id="confirmation-modal"><div class="modal panel w-full max-w-md text-center"><h3 class="text-xl font-semibold mb-2" id="confirmation-title">Are you sure?</h3><p class="muted mb-6" id="confirmation-text">This action cannot be undone.</p><div class="flex gap-4"><button class="w-full py-2 btn-secondary rounded-lg font-semibold" id="confirmation-cancel-btn">Cancel</button><button class="w-full py-2 bg-red-600 text-white rounded-lg font-semibold" id="confirmation-confirm-btn">Confirm</button></div></div></div>
+<div id="toast">Toast message</div>
+<div class="global-footer">
+<button class="hidden-button" id="credits-btn">Credits</button>
+  <button class="hidden-button" id="history-btn"><i class="fas fa-clock"></i> History</button>
+<div class="flex gap-2 items-center">
+<span class="muted text-xs">Theme</span>
+<button class="px-3 py-2 rounded-lg btn-secondary text-sm flex items-center gap-2" id="theme-toggle-btn"><i class="fas fa-paint-brush"></i></button>
+</div>
+</div>
+<script type="module">
+  // --- CONFIGURATION ---
+  const GEMINI_API_KEY = "AIzaSyBMIkeHPfZGJYxDUUn6j4xk_raxl0SBOSo";
+
+  // Optional: Google Custom Search (Programmatic) credentials for embedded results
+  const GOOGLE_CSE_KEY = ""; // <--- put your Google API key here if you want embedded Google results
+  const GOOGLE_CSE_CX = "";  // <--- put your Custom Search Engine (cx) ID here
+  const SUPABASE_URL = "https://ltwffrodpklbwunufeyn.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d2Zmcm9kcGtsYnd1bnVmZXluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2ODk3MzAsImV4cCI6MjA3MzI2NTczMH0.KJgmoMYdk3yQygyxMSa4Op8SgfEBFN3S3bBTBTxavRY";
+  const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+
+  // --- SUPABASE CLIENT ---
+  const { createClient } = supabase;
+  const dbClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // --- DOM ELEMENTS ---
+  const pages = document.querySelectorAll('.page');
+  const loader = document.getElementById('loader');
+  
+  // Login Page
+  const loginPage = document.getElementById('login-page');
+  const loginEmail = document.getElementById('login-email');
+  const loginPassword = document.getElementById('login-password');
+  const loginBtn = document.getElementById('login-btn');
+  const loginError = document.getElementById('login-error');
+
+  // Role Selection Page
+  const roleSelectionPage = document.getElementById('role-selection-page');
+  
+  // Student Dashboard
+  const studentDashboardPage = document.getElementById('student-dashboard-page');
+  const studentName = document.getElementById('student-name');
+  const studentEnrollment = document.getElementById('student-enrollment');
+  const studentShareName = document.getElementById('student-share-name');
+  const saveStudentInfoBtn = document.getElementById('save-student-info');
+  const openChatStudentBtn = document.getElementById('open-chat-student');
+  const openGraphStudentBtn = document.getElementById('open-graph-student');
+  const notificationsBtn = document.getElementById('notifications-btn');
+  const notificationsPanel = document.getElementById('notifications-panel');
+  const notificationsList = document.getElementById('notifications-list');
+  const notifCount = document.getElementById('notif-count');
+  const deleteAccountBtn = document.getElementById('delete-account-btn');
+  
+  // Mentor Dashboard
+  const mentorDashboardPage = document.getElementById('mentor-dashboard-page');
+  const studentListDiv = document.getElementById('student-list');
+  const mentorTotalCountEl = document.getElementById('mentor-total-count');
+  const mentorHighRiskCountEl = document.getElementById('mentor-highrisk-count');
+  const mentorRefreshBtn = document.getElementById('mentor-refresh-btn');
+
+  // Chat App
+  const chatApp = document.getElementById('chat-app');
+  const messagesDiv = document.getElementById("messages");
+  const chatWindow = document.getElementById("chat-window");
+  const chatInput = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("send-btn");
+  const clearHistoryBtn = document.getElementById("clear-history-btn");
+  const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
+  const mobileBackBtn = document.getElementById('mobile-back-btn');
+  const openGraphChatBtn = document.getElementById('open-graph-chat');
+  const guidanceSpectrum = document.getElementById('guidance-spectrum');
+  const empatheticLabel = document.getElementById('label-empathetic');
+  const balancedLabel = document.getElementById('label-balanced');
+  const pragmaticLabel = document.getElementById('label-pragmatic');
+
+
+  // Modals
+  const creditsModal = document.getElementById('credits-modal');
+  const calendarModal = document.getElementById('calendar-modal');
+  const graphModal = document.getElementById('graph-modal');
+  const mentorStudentModal = document.getElementById('mentor-student-modal');
+  const confirmationModal = document.getElementById('confirmation-modal');
+  const allModals = document.querySelectorAll('.modal-backdrop');
+
+  // --- STATE MANAGEMENT ---
+  let currentUser = null;
+  let userProfile = null;
+  let chatHistory = [];
+  let typingIndicatorEl = null;
+  let isTyping = false;
+  let mentalHealthChart = null;
+  let mentorStudentChart = null;
+  let notificationChannel = null;
+    let currentMentorTargetId = null;
+    let mentorModalMode = 'message';
+  
+
+  // --- INITIALIZATION ---
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Attach logout listeners
+    document.getElementById('logout-btn-student').addEventListener('click', handleLogout);
+    document.getElementById('logout-btn-mentor').addEventListener('click', handleLogout);
+    document.getElementById('logout-btn-chat').addEventListener('click', handleLogout);
+    
+    // Attach other listeners
+    guidanceSpectrum.addEventListener('input', updatePersonaLabels);
+    updatePersonaLabels(false); // Initial label update without saving
+
+    const { data: { session } } = await dbClient.auth.getSession();
+    if (session) {
+        currentUser = session.user;
+        await checkUserProfile();
+    } else {
+        showPage('login-page');
+    }
+    loader.style.display = 'none';
+  });
+
+  // --- UTILITY FUNCTIONS ---
+  function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+          toast.classList.remove('show');
+      }, 3000);
+  }
+
+  function showConfirmationModal(title, text, onConfirm) {
+      document.getElementById('confirmation-title').textContent = title;
+      document.getElementById('confirmation-text').textContent = text;
+      showModal('confirmation-modal');
+
+      const confirmBtn = document.getElementById('confirmation-confirm-btn');
+      const cancelBtn = document.getElementById('confirmation-cancel-btn');
+
+      const confirmClickHandler = () => {
+          onConfirm();
+          hideModal('confirmation-modal');
+          cleanup();
+      };
+      const cancelClickHandler = () => {
+          hideModal('confirmation-modal');
+          cleanup();
+      }
+      
+      const cleanup = () => {
+        confirmBtn.removeEventListener('click', confirmClickHandler);
+        cancelBtn.removeEventListener('click', cancelClickHandler);
+      }
+
+      confirmBtn.addEventListener('click', confirmClickHandler);
+      cancelBtn.addEventListener('click', cancelClickHandler);
+  }
+
+  // --- PAGE NAVIGATION ---
+  function showPage(pageId) {
+    pages.forEach(page => page.classList.add('hidden'));
+    document.getElementById(pageId).classList.remove('hidden');
+    // Special handling for chat app layout
+    if (pageId === 'chat-app') {
+        document.getElementById(pageId).classList.add('flex');
+    }
+  }
+
+  // --- AUTHENTICATION & USER PROFILE ---
+  loginBtn.addEventListener('click', async () => {
+    loginError.textContent = '';
+    const email = loginEmail.value;
+    const password = loginPassword.value;
+    
+    // First, try to sign in
+    let { data, error } = await dbClient.auth.signInWithPassword({ email, password });
+
+    // If user does not exist, sign them up
+    if (error && error.message.includes('Invalid login credentials')) {
+        ({ data, error } = await dbClient.auth.signUp({ email, password }));
+    }
+    
+    if (error) {
+        loginError.textContent = error.message;
+        return;
+    }
+    
+    if (data.user) {
+        currentUser = data.user;
+        await checkUserProfile();
+    }
+  });
+
+  async function handleLogout() {
+    await dbClient.auth.signOut();
+    currentUser = null;
+    userProfile = null;
+    // Simple reload to go back to the login page and clear all state
+    window.location.reload();
+  }
+
+  deleteAccountBtn.addEventListener('click', () => {
+      showConfirmationModal(
+        'Delete Account?', 
+        'This is permanent. All your data, including chat history and analysis, will be deleted.',
+        async () => {
+            loader.style.display = 'flex';
+            const { error } = await dbClient.functions.invoke('self-delete-user-data');
+            
+            if (error) {
+                loader.style.display = 'none';
+                showToast(`Error: ${error.message}`);
+                console.error("You need to set up the 'self-delete-user-data' Supabase Edge Function. See code comments for details.");
+            } else {
+                handleLogout();
+            }
+        }
+      );
+  });
+
+  async function checkUserProfile() {
+      const { data, error } = await dbClient.from('profiles').select('*').eq('id', currentUser.id).single();
+      if (data) {
+          userProfile = data;
+          navigateToDashboard();
+      } else {
+          showPage('role-selection-page');
+      }
+  }
+
+  roleSelectionPage.addEventListener('click', async (e) => {
+      if (e.target.matches('.role-btn')) {
+          const role = e.target.dataset.role;
+          const { data, error } = await dbClient.from('profiles').insert({ id: currentUser.id, email: currentUser.email, role: role }).select().single();
+          if (data) {
+              userProfile = data;
+              navigateToDashboard();
+          } else {
+              console.error("Error creating profile:", error);
+          }
+      }
+  });
+
+  function navigateToDashboard() {
+      switch(userProfile.role) {
+          case 'student':
+              loadStudentDashboard();
+              showPage('student-dashboard-page');
+              break;
+          case 'mentor':
+              loadMentorDashboard();
+              showPage('mentor-dashboard-page');
+              break;
+          case 'outsider':
+              loadChatApp(true);
+              showPage('chat-app');
+              break;
+      }
+  }
+
+  // --- STUDENT DASHBOARD LOGIC ---
+  
+async function loadStudentDashboard() {
+      const { data, error } = await dbClient.from('student_data').select('*').eq('user_id', currentUser.id).single();
+      if (data) {
+          studentName.value = data.full_name || '';
+          studentEnrollment.value = data.enrollment_number || '';
+          studentShareName.checked = data.share_name;
+
+          const cgpaField = document.getElementById('student-cgpa');
+          const yearField = document.getElementById('student-year');
+          const prefHoursField = document.getElementById('student-preferred-hours');
+          
+          if (cgpaField) cgpaField.value = (data.cgpa !== null) ? data.cgpa : '';
+          if (yearField) yearField.value = (data.college_year !== null) ? data.college_year : '';
+          if (prefHoursField) prefHoursField.value = (data.preferred_hours !== null) ? data.preferred_hours : '';
+      }
+      listenForNotifications();
+  }
+
+
+  saveStudentInfoBtn.addEventListener('click', async () => {
+      const { error } = await dbClient.from('student_data').upsert({
+          user_id: currentUser.id,
+          full_name: studentName.value,
+          enrollment_number: studentEnrollment.value,
+          share_name: studentShareName.checked,
+          email: currentUser.email
+      }, { onConflict: 'user_id' });
+
+      if (!error) showToast('Information saved!');
+      else showToast('Error saving information.');
+  });
+  
+  openChatStudentBtn.addEventListener('click', () => {
+    loadChatApp(false);
+    showPage('chat-app');
+  });
+
+  openGraphStudentBtn.addEventListener('click', async () => {
+    const analysis = await getChatAnalysis(true);
+    if (analysis) {
+        renderGraph(mentalHealthChart, 'mental-health-chart', analysis);
+        showModal('graph-modal');
+    }
+  });
+  
+  notificationsBtn.addEventListener('click', () => notificationsPanel.classList.toggle('hidden'));
+  
+  async function listenForNotifications() {
+      if(notificationChannel) dbClient.removeChannel(notificationChannel);
+      const { data } = await dbClient.from('notifications').select('*').eq('student_id', currentUser.id).order('created_at', { ascending: false });
+      
+      renderNotifications(data);
+
+      notificationChannel = dbClient.channel(`notifications:${currentUser.id}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `student_id=eq.${currentUser.id}` }, payload => {
+              addNotification(payload.new, true);
+          })
+          .subscribe();
+  }
+  
+  function renderNotifications(notifications) {
+      notificationsList.innerHTML = '';
+      if(!notifications || notifications.length === 0) {
+        notificationsList.innerHTML = '<p class="muted text-sm">No new messages.</p>';
+      } else {
+        notifications.forEach(notif => addNotification(notif, false));
+      }
+      updateNotifCount();
+  }
+
+  function addNotification(notif, isNew) {
+      if (notificationsList.querySelector('.muted')) notificationsList.innerHTML = '';
+      const notifEl = document.createElement('div');
+      notifEl.className = 'p-2 rounded-lg border border-[var(--border-color)]';
+      notifEl.innerHTML = `<p class="text-sm">${notif.message}</p><p class="text-xs muted text-right">${new Date(notif.created_at).toLocaleTimeString()}</p>`;
+      notificationsList.prepend(notifEl);
+      if(isNew) updateNotifCount(true);
+  }
+
+  function updateNotifCount(increment = false) {
+    let count = increment ? (parseInt(notifCount.textContent || 0) + 1) : notificationsList.children.length;
+    if(notificationsList.querySelector('.muted')) count = 0;
+    
+    notifCount.textContent = count;
+    if(count > 0) notifCount.classList.remove('hidden');
+    else notifCount.classList.add('hidden');
+  }
+
+  // --- MENTOR DASHBOARD LOGIC ---
+  const HIGH_RISK_THRESHOLD = 70;
+
+  async function loadMentorDashboard() {
+    const { data: students, error } = await dbClient.from('student_data').select('user_id, full_name, enrollment_number, share_name');
+    if(error) { console.error('Error fetching students', error); return; }
+
+    studentListDiv.innerHTML = '';
+    let total = 0;
+    let highRiskCount = 0;
+
+    const userIds = (students || []).map(s => s.user_id);
+    const { data: analyses } = await dbClient.from('chat_analysis').select('user_id, analysis_data').in('user_id', userIds || []);
+    const analysisMap = (analyses || []).reduce((acc, a) => { acc[a.user_id] = a.analysis_data; return acc; }, {});
+
+    (students || []).forEach(student => {
+        total++;
+        const analysis = analysisMap[student.user_id];
+        const stress = analysis && typeof analysis['Stress Level'] !== 'undefined' ? parseInt(analysis['Stress Level']) : null;
+        const isHighRisk = stress !== null && stress >= HIGH_RISK_THRESHOLD;
+        if (isHighRisk) highRiskCount++;
+
+        // MODIFIED: Create a table row (tr) instead of a div
+        const studentEl = document.createElement('tr');
+        studentEl.className = 'hover:bg-white/10 transition-colors';
+        studentEl.dataset.userid = student.user_id;
+        studentEl.innerHTML = `
+            <td class="px-4 py-3">
+                <p class="font-semibold">${student.share_name ? escapeHtml(student.full_name) : 'Anonymous Student'}</p>
+                <p class="text-sm muted">${student.share_name ? escapeHtml(student.enrollment_number) : 'Enrollment Hidden'}</p>
+            </td>
+            <td class="px-4 py-3">
+                ${isHighRisk ? '<span class="text-xs bg-red-600 text-white px-2 py-1 rounded-full">HIGH RISK</span>' : '<span class="text-xs bg-green-600/30 text-green-300 px-2 py-1 rounded-full">Normal</span>'}
+            </td>
+            <td class="px-4 py-3 text-right">
+                <div class="flex items-center justify-end gap-2">
+                    <button class="py-1 px-2 rounded-lg btn-secondary text-sm view-btn" title="View student's graph"><i class="fas fa-eye"></i></button>
+                    <button class="py-1 px-2 rounded-lg btn-secondary text-sm send-msg-btn text-green-400" title="Send message"><i class="fas fa-paper-plane"></i></button>
+                    <button class="py-1 px-2 rounded-lg btn-secondary text-sm delete-btn text-red-300" title="Delete student"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        `;
+        studentEl.querySelector('.view-btn').addEventListener('click', (e) => { e.stopPropagation(); openMentorStudentView(student); });
+        studentEl.querySelector('.send-msg-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('mentor-message-input').value = '';
+            document.getElementById('mentor-student-name').textContent = `${student.share_name ? student.full_name : 'Anonymous Student'} — Send Message`;
+            currentMentorTargetId = student.user_id;
+            mentorModalMode = 'message';
+            showModal('mentor-student-modal');
+        });
+        studentEl.querySelector('.delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            confirmDeleteStudent(student.user_id, studentEl);
+        });
+        studentListDiv.appendChild(studentEl);
+    });
+
+    mentorTotalCountEl.textContent = total;
+    mentorHighRiskCountEl.textContent = highRiskCount;
+  }
+
+  mentorRefreshBtn.addEventListener('click', () => loadMentorDashboard());
+
+  async function confirmDeleteStudent(userId, element) {
+    showConfirmationModal('Delete Student?', 'This action is permanent.', async () => {
+        try {
+            loader.style.display = 'flex';
+            await dbClient.from('notifications').delete().eq('student_id', userId);
+            await dbClient.from('chat_analysis').delete().eq('user_id', userId);
+            await dbClient.from('chats').delete().eq('user_id', userId);
+            await dbClient.from('student_data').delete().eq('user_id', userId);
+            await dbClient.from('profiles').delete().eq('id', userId);
+            const card = document.querySelector(`[data-userid="${userId}"]`) || (element && element.closest('[data-userid]'));
+            if (card) card.remove();
+            await loadMentorDashboard();
+            showToast('Student deleted.');
+        } catch (e) {
+            showToast('Error deleting student.');
+        } finally {
+            loader.style.display = 'none';
+        }
+    });
+  }
+
+  async function openMentorStudentView(student) {
+      const { data } = await dbClient.from('chat_analysis').select('analysis_data').eq('user_id', student.user_id).single();
+      document.getElementById('mentor-student-name').textContent = `${student.share_name ? student.full_name : 'Anonymous Student'}'s Graph`;
+      if (data && data.analysis_data) {
+          renderGraph(mentorStudentChart, 'mentor-student-chart', data.analysis_data);
+      } else {
+          if(mentorStudentChart) mentorStudentChart.destroy();
+          document.getElementById('mentor-graph-container').innerHTML = '<canvas id="mentor-student-chart"></canvas>';
+      }
+      renderMentorExtraChart(student.user_id).catch(() => {});
+      currentMentorTargetId = student.user_id;
+      mentorModalMode = 'stats';
+      document.getElementById('mentor-message-input').value = '';
+      showModal('mentor-student-modal');
+}
+
+  function escapeHtml(unsafe) {
+    if(!unsafe && unsafe !== 0) return '';
+    return String(unsafe).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m]);
+  }
+
+  // --- CHAT APP LOGIC ---
+  function updatePersonaLabels(save=true){
+    const v = parseFloat(guidanceSpectrum.value);
+    empatheticLabel.classList.remove("font-semibold", "accent");
+    balancedLabel.classList.remove("font-semibold", "accent");
+    pragmaticLabel.classList.remove("font-semibold", "accent");
+    if(v < 0.7) empatheticLabel.classList.add("font-semibold", "accent");
+    else if(v < 1.4) balancedLabel.classList.add("font-semibold", "accent");
+    else pragmaticLabel.classList.add("font-semibold", "accent");
+    if(save) localStorage.setItem('guidanceSpectrumValue', v);
+  }
+
+  async function loadChatApp(isOutsider) {
+      guidanceSpectrum.value = localStorage.getItem('guidanceSpectrumValue') || '1';
+      updatePersonaLabels(false);
+
+      if (isOutsider) {
+          backToDashboardBtn.classList.add('hidden');
+          chatHistory = JSON.parse(localStorage.getItem('outsiderChatHistory') || '[]');
+      } else {
+          backToDashboardBtn.classList.remove('hidden');
+          const { data } = await dbClient.from('chats').select('history').eq('user_id', currentUser.id).single();
+          chatHistory = data ? data.history : [];
+      }
+      
+      messagesDiv.innerHTML = '';
+      chatHistory.forEach(m => addMessageToChat(m.role, m.parts[0].text, false));
+
+      if (chatHistory.length === 0) {
+          initiatePersonalityQuestions();
+      }
+  }
+
+  function initiatePersonalityQuestions() {
+    addMessageToChat('model', "Hello! I'm Quantum Apex. To start, I can ask some questions to gauge your wellness, or you can ask me anything. What would you like to do?", false);
+    chatHistory.push({role: 'model', parts: [{text: "..."}]});
+  }
+
+  async function saveChatHistory() {
+      if (userProfile.role === 'outsider') {
+          localStorage.setItem('outsiderChatHistory', JSON.stringify(chatHistory));
+      } else if (currentUser) {
+          await dbClient.from('chats').upsert({ user_id: currentUser.id, history: chatHistory }, { onConflict: 'user_id' });
+      }
+  }
+  
+  function addMessageToChat(role, text, save=true) {
+      text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      text = text.replace(/(\r\n|\n|\r)/g, '<br>');
+      text = text.replace(/^\* (.*$)/gm, '<ul><li class="ml-4">$1</li></ul>').replace(/<\/ul><br><ul>/g, "");
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex w-full message-bubble";
+      if(role === "user") wrapper.classList.add("justify-end");
+      
+      const bubble = document.createElement("div");
+      bubble.className = (role === "user") ? "p-3 rounded-2xl max-w-[90%] bubble-user" : "p-3 rounded-2xl max-w-[90%] bubble-bot";
+      bubble.innerHTML = text;
+      wrapper.appendChild(bubble);
+
+      messagesDiv.appendChild(wrapper);
+      chatWindow.scrollTo({top:chatWindow.scrollHeight,behavior:'smooth'});
+      if(save) {
+          chatHistory.push({role, parts: [{text}]});
+          saveChatHistory();
+      }
+  }
+
+  function showTypingIndicator(){if(isTyping)return;isTyping=true;typingIndicatorEl=document.createElement("div");typingIndicatorEl.className="flex w-full message-bubble";const b=document.createElement("div");b.className="p-3 rounded-2xl max-w-[40%] bubble-bot flex items-center";b.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';typingIndicatorEl.appendChild(b);messagesDiv.appendChild(typingIndicatorEl);chatWindow.scrollTo({top:chatWindow.scrollHeight,behavior:'smooth'});}
+  function hideTypingIndicator(){if(!isTyping)return;typingIndicatorEl?.remove();typingIndicatorEl=null;isTyping=false;}
+
+  async function getBotReply(msg) {
+    showTypingIndicator();
+    let systemInstruction = "You are Quantum Apex Assistant, an AI for MIT student wellbeing. Be encouraging and provide actionable advice. Your name is Quantum Apex.";
+    
+    const v = parseFloat(guidanceSpectrum.value);
+    if(v < 0.7) systemInstruction += " Respond kindly and empathetically.";
+    else if(v < 1.4) systemInstruction += " Respond in a balanced way.";
+    else systemInstruction += " Respond in a strict, direct way.";
+
+    if (chatHistory.find(m => m.parts[0].text === "...")) {
+        systemInstruction += ` You are in assessment mode. Ask insightful questions one by one based on the OCEAN model. If the user says 'skip' or 'stop', stop and say 'Okay, what's on your mind?' and switch to normal conversation.`;
+        if(msg.toLowerCase().includes('skip') || msg.toLowerCase().includes('stop')) {
+          chatHistory = chatHistory.filter(m => m.parts[0].text !== "...");
+        }
+    }
+
+    try {
+        const payload = {
+            contents: [...chatHistory.slice(0, -1), {role: "user", parts: [{text: msg}]}],
+            systemInstruction: { parts: [{ text: systemInstruction }] }
+        };
+
+        const r = await fetch(GEMINI_URL, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+        const d = await r.json();
+        hideTypingIndicator();
+        
+        const reply = d?.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I encountered an issue.";
+        
+        if (msg.toLowerCase().includes('skip') || msg.toLowerCase().includes('stop')) {
+             chatHistory = chatHistory.filter(m => m.parts[0].text !== "...");
+        }
+
+        addMessageToChat("model", reply, true);
+
+    } catch(e) {
+        hideTypingIndicator();
+        addMessageToChat("model", "Error connecting to Gemini API.", false);
+    }
+  }
+
+  function sendMessage() {
+    const m = chatInput.value.trim();
+    if(!m) return;
+    chatInput.value="";
+    addMessageToChat("user", m, true);
+    getBotReply(m);
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  chatInput.addEventListener("keydown", e => {if(e.key==="Enter" && !e.shiftKey){e.preventDefault(); sendMessage();}});
+
+  clearHistoryBtn.addEventListener('click', () => {
+      showConfirmationModal(
+          'Clear History?',
+          'This will delete your conversation and graph.',
+          () => {
+              chatHistory = [];
+              messagesDiv.innerHTML = "";
+              saveChatHistory();
+              if (userProfile.role !== 'outsider' && currentUser) {
+                dbClient.from('chat_analysis').delete().eq('user_id', currentUser.id).then();
+              }
+              showToast("Chat history cleared.");
+          }
+      );
+  });
+
+  backToDashboardBtn.addEventListener('click', navigateToDashboard);
+  mobileBackBtn.addEventListener('click', navigateToDashboard);
+
+  // --- AI GRAPH & CALENDAR LOGIC ---
+  async function getChatAnalysis(forceReanalysis = false) {
+      if(chatHistory.length < 3) {
+        showToast("Please chat more for an analysis.");
+        return null;
+      }
+      
+      if (!forceReanalysis && userProfile.role !== 'outsider' && currentUser) {
+          const { data } = await dbClient.from('chat_analysis').select('analysis_data').eq('user_id', currentUser.id).single();
+          if (data && data.analysis_data) return data.analysis_data;
+      }
+
+      loader.style.display = 'flex';
+
+      const analysisPrompt = `Analyze the chat history. Provide a JSON object rating the user (1-100) on: Openness, Conscientiousness, Extraversion, Agreeableness, and Stress Level. Format: {"Openness": 80, "Conscientiousness": 60, "Extraversion": 45, "Agreeableness": 75, "Stress Level": 55}. Only the raw JSON. History: ${JSON.stringify(chatHistory)}`;
+
+      try {
+          const r = await fetch(GEMINI_URL, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ contents: [{ parts: [{ text: analysisPrompt }] }] }) });
+          const d = await r.json();
+          const textResponse = d?.candidates?.[0]?.content?.parts?.[0]?.text;
+          
+          if (!textResponse) throw new Error("API returned empty.");
+
+          const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+              const analysisData = JSON.parse(jsonMatch[0]);
+              if (userProfile.role !== 'outsider' && currentUser) {
+                  await dbClient.from('chat_analysis').upsert({ user_id: currentUser.id, analysis_data: analysisData }, { onConflict: 'user_id' });
+              }
+              return analysisData;
+          } else {
+             throw new Error("No valid JSON in response.");
+          }
+      } catch (e) {
+        showToast("Could not generate analysis.");
+      } finally {
+        loader.style.display = 'none';
+      }
+      return null;
+  }
+
+  function renderGraph(chartInstance, canvasId, data) {
+      const canvas = document.getElementById(canvasId);
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      
+      const newChartInstance = new Chart(ctx, {
+          type: 'radar',
+          data: {
+              labels: Object.keys(data),
+              datasets: [{
+                  label: 'Wellness Score', data: Object.values(data),
+                  backgroundColor: 'rgba(96, 165, 250, 0.2)', borderColor: 'rgba(96, 165, 250, 1)',
+                  borderWidth: 2, pointBackgroundColor: 'rgba(96, 165, 250, 1)', pointBorderColor: '#fff',
+                  pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgba(96, 165, 250, 1)'
+              }]
+          },
+          options: {
+              responsive: true, maintainAspectRatio: false,
+              scales: { r: {
+                  angleLines: { color: 'rgba(255,255,255,0.2)' }, grid: { color: 'rgba(255,255,255,0.2)' },
+                  pointLabels: { color: 'var(--muted)', font: { size: 12 } },
+                  suggestedMin: 0, suggestedMax: 100,
+                  ticks: { backdropColor: 'transparent', color: 'var(--muted)' }
+              }},
+              plugins: { legend: { display: false } },
+              animation: { duration: 1000, easing: 'easeInOutCubic' }
+          }
+      });
+      if(canvasId.includes('mentor')) { mentorStudentChart = newChartInstance; }
+      else { mentalHealthChart = newChartInstance; }
+  }
+  
+  openGraphChatBtn.addEventListener('click', async () => {
+    const isOutsider = userProfile.role === 'outsider';
+    const analysis = await getChatAnalysis(!isOutsider);
+    if (analysis) {
+        renderGraph(mentalHealthChart, 'mental-health-chart', analysis);
+        showModal('graph-modal');
+    }
+  });
+
+  document.getElementById('generate-calendar-btn').addEventListener('click', async () => {
+      const hours = document.getElementById('study-hours').value;
+      const focus = document.getElementById('focus-time').value;
+      const subjects = document.getElementById('subjects').value;
+      const deadlines = document.getElementById('deadlines').value;
+      if (!hours || !focus || !subjects) {
+          showToast("Please fill all fields."); return;
+      }
+      const btn = document.getElementById('generate-calendar-btn');
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating...`;
+      btn.disabled = true;
+
+      const prompt = `Create a 7-day study schedule as clean HTML. Container: 'space-y-4'. Day: <h4>. Task: <ul>/<li>.
+      Details: ${hours}h/day, ${focus}min sessions, Subjects: ${subjects}, Deadlines: ${deadlines}. Include breaks. Prioritize deadlines. No markdown.`;
+      
+      try {
+        const r = await fetch(GEMINI_URL, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+        const d = await r.json();
+        const resultHTML = d?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!resultHTML) throw new Error("API returned empty.");
+
+        document.getElementById('calendar-form').classList.add('hidden');
+        const resultDiv = document.getElementById('calendar-result');
+        resultDiv.innerHTML = resultHTML;
+        resultDiv.classList.remove('hidden');
+      } catch (e) {
+        showToast("Could not generate schedule.");
+      } finally {
+        btn.innerHTML = `Generate Schedule`;
+        btn.disabled = false;
+      }
+  });
+
+  document.getElementById('send-mentor-message-btn').addEventListener('click', async () => {
+      const message = document.getElementById('mentor-message-input').value;
+      if(!message || !currentMentorTargetId) return;
+      await dbClient.from('notifications').insert({ student_id: currentMentorTargetId, message: message });
+      document.getElementById('mentor-message-input').value = '';
+      currentMentorTargetId = null;
+      mentorModalMode = 'message';
+      hideModal('mentor-student-modal');
+      showToast('Message sent!');
+  });
+
+// --- MODAL & THEME LOGIC ---
+  function showModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (!modal) return;
+      if (modalId === 'mentor-student-modal') {
+          const graph = modal.querySelector('#mentor-graph-container');
+          const msgInput = modal.querySelector('#mentor-message-input')?.closest('.space-y-3');
+          if (mentorModalMode === 'message') {
+              if (graph) graph.classList.add('hidden');
+              if (msgInput) msgInput.classList.remove('hidden');
+          } else {
+              if (graph) graph.classList.remove('hidden');
+              if (msgInput) msgInput.classList.add('hidden');
+          }
+      }
+      modal.classList.add('show');
+      modal.querySelector('.modal').classList.add('show');
+  }
+
+  function hideModal(modalId) {
+      const modal = document.getElementById(modalId);
+      modal.querySelector('.modal').classList.remove('show');
+      setTimeout(() => modal.classList.remove('show'), 350);
+  }
+
+  allModals.forEach(modal => {
+      modal.addEventListener('click', (e) => {
+          if (e.target === modal || e.target.matches('.modal-close-btn')) {
+              hideModal(modal.id);
+          }
+      });
+  });
+
+  document.getElementById('open-calendar-modal').addEventListener('click', () => {
+    document.getElementById('calendar-form').classList.remove('hidden');
+    document.getElementById('calendar-result').classList.add('hidden');
+    showModal('calendar-modal');
+  });
+  document.getElementById('credits-btn').addEventListener('click', () => showModal('credits-modal'));
+  
+  const themes=["theme-midnight","theme-ink","theme-spring","theme-warm","theme-forest","theme-rose"]; 
+  let currentThemeIndex = 0;
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
+  function applyTheme(i){document.body.className = `h-full ${themes[i]} text-gray-100 antialiased`;} 
+  applyTheme(currentThemeIndex);
+  themeToggleBtn.addEventListener("click",()=>{currentThemeIndex=(currentThemeIndex+1)%themes.length;applyTheme(currentThemeIndex);});
+
+document.getElementById('close-notifications-btn')?.addEventListener('click', () => { notificationsPanel.classList.add('hidden'); });
+
+document.getElementById('save-student-extra')?.addEventListener('click', async () => {
+  const cgpa = parseFloat(document.getElementById('student-cgpa')?.value) || null;
+  const college_year = parseInt(document.getElementById('student-year')?.value) || null;
+  const preferred_hours = parseInt(document.getElementById('student-preferred-hours')?.value) || null;
+  if (!currentUser) return;
+  const { error } = await dbClient.from('student_data').upsert({
+    user_id: currentUser.id, cgpa, college_year, preferred_hours
+  }, { onConflict: 'user_id' });
+
+  if (!error) showToast('Academic info saved!');
+  else showToast('Error saving academic info.');
+});
+
+async function renderMentorExtraChart(studentId){
+  try {
+    const { data } = await dbClient.from('student_data').select('cgpa, college_year, preferred_hours').eq('user_id', studentId).single();
+    if (data) {
+      const container = document.getElementById('mentor-graph-container');
+      const existing = document.getElementById('mentor-extra-chart-wrap');
+      if (existing) existing.remove();
+      const wrap = document.createElement('div');
+      wrap.id = 'mentor-extra-chart-wrap';
+      wrap.className = 'relative h-48 w-full mt-4 panel p-2';
+      wrap.innerHTML = '<h4 class="font-semibold mb-2">Academic Info</h4><canvas id="mentor-extra-chart"></canvas>';
+      container.appendChild(wrap);
+      const ctx = document.getElementById('mentor-extra-chart').getContext('2d');
+      if (window._mentorExtraChart) window._mentorExtraChart.destroy();
+      window._mentorExtraChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['CGPA','Year','Hours'],
+          datasets: [{ label: 'Info', data: [data.cgpa || 0, data.college_year || 0, data.preferred_hours || 0], borderWidth: 1 }]
+        },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+      });
+    }
+  } catch(e) { console.error('Error rendering mentor extra chart', e); }
+}
+
+// 🌟 --- UI ENHANCEMENT SCRIPT --- 🌟
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof gsap === 'undefined' || typeof THREE === 'undefined') {
+        console.error("GSAP or Three.js is not loaded. Visual enhancements disabled.");
+        return;
+    }
+
+    let scene, camera, renderer, particles;
+    const canvas = document.getElementById('bg3d');
+    function init3DBackground() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const pCount = 700, pos = new Float32Array(pCount * 3);
+        for (let i = 0; i < pCount * 3; i++) pos[i] = (Math.random() - 0.5) * 10;
+        const pGeom = new THREE.BufferGeometry();
+        pGeom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const pMat = new THREE.PointsMaterial({ size: 0.02, sizeAttenuation: true, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending });
+        particles = new THREE.Points(pGeom, pMat);
+        scene.add(particles);
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        animate();
+    }
+    const mouse = new THREE.Vector2();
+    function onMouseMove(e) { mouse.x = (e.clientX/window.innerWidth)*2-1; mouse.y = -(e.clientY/window.innerHeight)*2+1; }
+    function onWindowResize() {
+        camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth,window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    }
+    const clock = new THREE.Clock();
+    function animate() {
+        requestAnimationFrame(animate);
+        const elapsed = clock.getElapsedTime();
+        particles.rotation.y = elapsed*0.05; particles.rotation.x = elapsed*0.02;
+        camera.position.x += (mouse.x*0.5-camera.position.x)*0.02;
+        camera.position.y += (mouse.y*0.5-camera.position.y)*0.02;
+        camera.lookAt(scene.position);
+        renderer.render(scene, camera);
+    }
+    init3DBackground();
+
+    const originalShowPage = window.showPage;
+    window.showPage = (pageId) => {
+        const cPage = document.querySelector('.page:not(.hidden)');
+        const tOut = (cb) => {
+            if (cPage) gsap.to(cPage, { opacity: 0, scale: 0.98, duration: 0.3, ease: 'power2.in', onComplete: cb });
+            else cb();
+        };
+        const tIn = () => {
+            originalShowPage(pageId);
+            const nPage = document.getElementById(pageId);
+            gsap.fromTo(nPage, {opacity:0, scale:1.02, y:15}, {opacity:1, scale:1, y:0, duration:0.4, ease:'power2.out'});
+            if (pageId.includes('dashboard')) {
+                gsap.from(`#${pageId} .grid > div > .panel, #${pageId} #student-list > div`, 
+                  { opacity:0, y:30, duration:0.5, stagger:0.08, ease:'power3.out', delay:0.2 });
+            }
+        };
+        tOut(tIn);
+    };
+
+    const originalShowModal = window.showModal, originalHideModal = window.hideModal;
+    window.showModal = (id) => {
+        const back = document.getElementById(id), modal = back?.querySelector('.modal');
+        originalShowModal(id);
+        gsap.to(back, {opacity:1, duration:0.3});
+        gsap.fromTo(modal, {opacity:0, scale:0.9, y:-20}, {opacity:1, scale:1, y:0, duration:0.3, ease:'back.out(1.7)'});
+    };
+    window.hideModal = (id) => {
+        const back = document.getElementById(id), modal = back?.querySelector('.modal');
+        gsap.to(modal, {opacity:0, scale:0.9, duration:0.2, ease:'power2.in', onComplete:()=>originalHideModal(id)});
+        gsap.to(back, {opacity:0, duration:0.3});
+    };
+
+    const originalShowToast = window.showToast;
+    window.showToast = (msg) => {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        gsap.fromTo(toast, {y:'100%', opacity:0}, {y:'0%', opacity:1, duration:0.5, ease:'back.out(1.7)',
+            onStart:()=>toast.classList.add('show'),
+            onComplete:()=>gsap.to(toast, {y:'100%', opacity:0, duration:0.5, ease:'power2.in', delay:2.5, onComplete:()=>toast.classList.remove('show')})
+        });
+    };
+    
+    const originalAddMessageToChat = window.addMessageToChat;
+    window.addMessageToChat = (role, text, save=true) => {
+        originalAddMessageToChat(role, text, save);
+        const bubble = messagesDiv.lastElementChild;
+        if (bubble) gsap.from(bubble, {opacity:0, x:role==='user'?40:-40, scale:0.8, duration:0.5, ease:'back.out(1.7)'});
+    };
+    
+    document.body.addEventListener('mousemove', e => {
+        document.querySelectorAll('.panel').forEach(p => {
+            const r = p.getBoundingClientRect();
+            p.style.setProperty('--mouse-x', `${e.clientX - r.left}px`);
+            p.style.setProperty('--mouse-y', `${e.clientY - r.top}px`);
+        });
+    });
+
+    document.body.addEventListener('click', e => {
+        const btn = e.target.closest('.btn-accent, .btn-secondary');
+        if (btn) {
+            const r = btn.getBoundingClientRect(), c = document.createElement('span'),
+            d = Math.max(btn.clientWidth, btn.clientHeight), rad = d/2;
+            c.style.width = c.style.height = `${d}px`;
+            c.style.left = `${e.clientX - r.left - rad}px`;
+            c.style.top = `${e.clientY - r.top - rad}px`;
+            c.classList.add('ripple');
+            const rip = btn.querySelector('.ripple');
+            if(rip) rip.remove();
+            btn.appendChild(c);
+        }
+    });
+
+    document.querySelectorAll('#student-dashboard-page .grid > div > .panel').forEach(card => {
+        card.addEventListener('mouseenter', ()=>gsap.to(card, {duration:0.4, scale:1.03, y:-8, ease:'power2.out'}));
+        card.addEventListener('mouseleave', ()=>gsap.to(card, {duration:0.6, scale:1, y:0, ease:'elastic.out(1, 0.5)'}));
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- FEATURE 1: STRESS CALCULATOR ---
+    const startQuizBtn = document.getElementById('start-quiz-btn');
+    const retakeQuizBtn = document.getElementById('retake-quiz-btn');
+    const quizContainer = document.getElementById('stress-quiz-container');
+    const resultContainer = document.getElementById('stress-result-container');
+    let stressChartInstance = null;
+    
+    const stressQuestions = [
+        { q: "How often have you been upset because of something that happened unexpectedly?", o: ["Never", "Almost Never", "Sometimes", "Fairly Often", "Very Often"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you felt that you were unable to control the important things in your life?", o: ["Never", "Almost Never", "Sometimes", "Fairly Often", "Very Often"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you felt nervous and 'stressed'?", o: ["Never", "Almost Never", "Sometimes", "Fairly Often", "Very Often"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you felt confident about your ability to handle your personal problems?", o: ["Very Often", "Fairly Often", "Sometimes", "Almost Never", "Never"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you felt that things were going your way?", o: ["Very Often", "Fairly Often", "Sometimes", "Almost Never", "Never"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you found that you could not cope with all the things that you had to do?", o: ["Never", "Almost Never", "Sometimes", "Fairly Often", "Very Often"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you been able to control irritations in your life?", o: ["Very Often", "Fairly Often", "Sometimes", "Almost Never", "Never"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you felt that you were on top of things?", o: ["Very Often", "Fairly Often", "Sometimes", "Almost Never", "Never"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you been angered because of things that were outside of your control?", o: ["Never", "Almost Never", "Sometimes", "Fairly Often", "Very Often"], v: [0, 1, 2, 3, 4] },
+        { q: "How often have you felt difficulties were piling up so high that you could not overcome them?", o: ["Never", "Almost Never", "Sometimes", "Fairly Often", "Very Often"], v: [0, 1, 2, 3, 4] },
+    ];
+
+    let currentQuestionIndex = 0;
+    let scores = [];
+
+    function startQuiz() {
+        currentQuestionIndex = 0;
+        scores = [];
+        resultContainer.classList.add('hidden');
+        quizContainer.classList.remove('hidden');
+        renderQuestion(currentQuestionIndex);
+    }
+
+    function renderQuestion(index) {
+        if (index >= stressQuestions.length) {
+            showResults();
+            return;
+        }
+        const item = stressQuestions[index];
+        quizContainer.innerHTML = `
+            <p class="font-semibold mb-3">${index + 1}. ${item.q}</p>
+            <div>${item.o.map((opt, i) => `
+                <label class="quiz-option">
+                    <input type="radio" name="q${index}" value="${item.v[i]}" class="hidden"> ${opt}
+                </label>`).join('')}
+            </div>
+        `;
+        quizContainer.querySelectorAll('.quiz-option input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                scores[index] = parseInt(e.target.value);
+                // Highlight selected
+                quizContainer.querySelectorAll('.quiz-option').forEach(l => l.classList.remove('selected'));
+                e.target.parentElement.classList.add('selected');
+                // Auto-advance
+                setTimeout(() => renderQuestion(index + 1), 300);
+            });
+        });
+    }
+
+    function showResults() {
+        const totalScore = scores.reduce((a, b) => a + b, 0);
+        const maxScore = stressQuestions.length * 4;
+        const stressPercentage = Math.round((totalScore / maxScore) * 100);
+
+        let level, advice;
+        if (stressPercentage <= 25) {
+            level = `Low Stress (${stressPercentage}%)`;
+            advice = "You're managing stress well. Keep up the healthy habits!";
+        } else if (stressPercentage <= 50) {
+            level = `Mild Stress (${stressPercentage}%)`;
+            advice = "You're experiencing some stress. Consider mindfulness or a short break.";
+        } else if (stressPercentage <= 75) {
+            level = `Moderate Stress (${stressPercentage}%)`;
+            advice = "Your stress levels are elevated. Prioritizing relaxation and talking to someone could help.";
+        } else {
+            level = `High Stress (${stressPercentage}%)`;
+            advice = "High stress detected. It's important to seek support. Consider talking to a mentor or professional.";
+        }
+        
+        quizContainer.classList.add('hidden');
+        resultContainer.classList.remove('hidden');
+        document.getElementById('stress-level-text').textContent = level;
+        document.getElementById('stress-advice-text').textContent = advice;
+
+        renderStressGraph(stressPercentage);
+    }
+
+    function renderStressGraph(score) {
+        const ctx = document.getElementById('stress-chart').getContext('2d');
+        if (stressChartInstance) stressChartInstance.destroy();
+        
+        const data = {
+            datasets: [{
+                data: [score, 100 - score],
+                backgroundColor: ['rgba(var(--accent-rgb), 0.7)', 'rgba(127,127,127,0.2)'],
+                borderColor: 'transparent',
+                circumference: 180,
+                rotation: 270,
+            }]
+        };
+
+        stressChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                animation: { animateScale: true, animateRotate: true }
+            }
+        });
+    }
+
+    if(startQuizBtn) startQuizBtn.addEventListener('click', startQuiz);
+    if(retakeQuizBtn) retakeQuizBtn.addEventListener('click', startQuiz);
+
+
+    // --- FEATURE 2: INTEGRATED AI + WEB SEARCH ---
+    
+    // This helper function performs the search and returns a structured result array.
+    async function fetchWebSearchResults(query) {
+        const GOOGLE_KEY = window.GOOGLE_CSE_KEY || "";
+        const GOOGLE_CX = window.GOOGLE_CSE_CX || "";
+        let searchResults = [];
+
+        // Try Google Custom Search first
+        if (GOOGLE_KEY && GOOGLE_CX) {
+            try {
+                const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_KEY}&cx=${GOOGLE_CX}&q=${encodeURIComponent(query)}`;
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.items && data.items.length > 0) {
+                        searchResults = data.items.slice(0, 4).map(it => ({ title: it.title, link: it.link, snippet: it.snippet }));
+                        return searchResults;
+                    }
+                }
+            } catch (e) { console.warn("Google CSE fetch failed:", e); }
+        }
+
+        // Fallback to DuckDuckGo
+        try {
+            const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
+            const resp = await fetch(url);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+                    searchResults = data.RelatedTopics.filter(rt => rt.FirstURL).slice(0, 4).map(it => ({ title: it.Text.split(' - ')[0], link: it.FirstURL, snippet: it.Text }));
+                    return searchResults;
+                }
+            }
+        } catch (e) { console.warn("DuckDuckGo fetch failed:", e); }
+        
+        return []; // Return empty if all fails
+    }
+
+    // This helper formats the results into clean HTML for the chat bubble.
+    function formatSearchResultsForChat(results) {
+        if (!results || results.length === 0) return null;
+
+        const itemsHtml = results.map(r => `
+            <li>
+                <a href="${r.link}" target="_blank" rel="noopener noreferrer">${r.title}</a>
+                <p>${r.snippet}</p>
+            </li>
+        `).join('');
+
+        return `<strong>Web Results:</strong><ul class="web-results-bubble mt-2">${itemsHtml}</ul>`;
+    }
+
+    // Here we "wrap" the original getBotReply function to add our new functionality.
+    // We wait for the original script to fully load and define its functions.
+    if (window.getBotReply) {
+        const originalGetBotReply = window.getBotReply; // Store a reference to the original.
+
+        window.getBotReply = async function(msg) {
+            // 1. Call the original function to get the AI's primary response.
+            await originalGetBotReply(msg);
+            
+            // 2. After the AI replies, perform our web search.
+            const searchResults = await fetchWebSearchResults(msg);
+
+            // 3. Format and display the search results in a new chat bubble.
+            const searchResultsHtml = formatSearchResultsForChat(searchResults);
+            if (searchResultsHtml && window.addMessageToChat) {
+                // Add a small delay for a more natural flow
+                setTimeout(() => {
+                    window.addMessageToTioChat('model', searchResultsHtml, false); // Don't save HTML to history
+                }, 500);
+            }
+        };
+    } else {
+        console.error("Could not find 'getBotReply' function to enhance.");
+    }
+
+});
+</script>
+
+</body>
+</html>
